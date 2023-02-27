@@ -7,7 +7,7 @@ import shlex
 
 
 def as_bool(val):
-    return str(val).lower() in ('1', 'enabled', 'on', 't', 'true', 'y', 'yes')
+    return str(val).lower() in {'1', 'enabled', 'on', 't', 'true', 'y', 'yes'}
 
 
 def parse_hostport(addr, port=9000):

@@ -5,6 +5,7 @@
 #
 """An OSC to MQTT bridge based on pyliblo and paho-mqtt."""
 
+
 from io import open
 from setuptools import setup
 
@@ -35,30 +36,29 @@ Topic :: Home Automation
 Topic :: Multimedia :: Sound/Audio
 """
 name = 'osc2mqtt'
-url = 'https://github.com/SpotlightKid/%s' % name.lower()
+url = f'https://github.com/SpotlightKid/{name.lower()}'
 readme = open('README.rst', encoding='utf-8').read()
 
 setup(
-    name = name,
-    version = '0.2b2',
-    description = __doc__.splitlines()[0],
-    long_description = "\n".join(readme.splitlines()[2:]),
-    keywords = 'osc mqtt iot',
-    classifiers = [c.strip() for c in classifiers.splitlines()
-        if c.strip() and not c.startswith('#')],
-    author = 'Christopher Arndt',
-    author_email = 'chris@chrisarndt.de',
-    url = url,
-    repository = url,
-    download_url = url + '/releases',
-    license = 'MIT License',
-    platforms = 'POSIX, Windows, MacOS X',
-    packages = ['osc2mqtt'],
-    install_requires = parse_requirements('requirements.txt'),
-    entry_points = {
-        'console_scripts': [
-            'osc2mqtt = osc2mqtt.__main__:main'
-        ]
-    },
-    zip_safe = True
+    name=name,
+    version='0.2b2',
+    description=__doc__.splitlines()[0],
+    long_description="\n".join(readme.splitlines()[2:]),
+    keywords='osc mqtt iot',
+    classifiers=[
+        c.strip()
+        for c in classifiers.splitlines()
+        if c.strip() and not c.startswith('#')
+    ],
+    author='Christopher Arndt',
+    author_email='chris@chrisarndt.de',
+    url=url,
+    repository=url,
+    download_url=f'{url}/releases',
+    license='MIT License',
+    platforms='POSIX, Windows, MacOS X',
+    packages=['osc2mqtt'],
+    install_requires=parse_requirements('requirements.txt'),
+    entry_points={'console_scripts': ['osc2mqtt = osc2mqtt.__main__:main']},
+    zip_safe=True,
 )

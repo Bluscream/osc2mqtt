@@ -47,9 +47,11 @@ def read_config(filename, options="options"):
         parser.read(filename)
         if parser.has_section(options):
             default_options = parser.items('DEFAULT')
-            config.update(
-                (setting, value) for setting, value in parser.items(options)
-                if setting not in default_options)
+            config |= (
+                (setting, value)
+                for setting, value in parser.items(options)
+                if setting not in default_options
+            )
 
         for section in parser.sections():
             if section.startswith(':'):
@@ -125,8 +127,7 @@ class Osc2MqttBridge(object):
 
     def handle_mqtt(self, client, userdata, msg):
         log.debug("MQTT recv: %s %r", msg.topic, msg.payload)
-        res = self.converter.from_mqtt(msg.topic, msg.payload)
-        if res:
+        if res := self.converter.from_mqtt(msg.topic, msg.payload):
             if self.osc_receiver:
                 log.debug("OSC send: %s %r", *res)
                 self.oscserver.send(self.osc_receiver, res[0], *res[1])
@@ -135,8 +136,7 @@ class Osc2MqttBridge(object):
 
     def handle_osc(self, oscaddr, values, tags, clientaddr, userdata):
         log.debug("OSC recv: %s %r", oscaddr, values)
-        res = self.converter.from_osc(oscaddr, values, tags)
-        if res:
+        if res := self.converter.from_osc(oscaddr, values, tags):
             log.debug("MQTT publish: %s %r", *res)
             self.mqttclient.publish(*res)
         else:

@@ -91,7 +91,7 @@ def lru_cache(maxsize=128, typed=False):
 
     def decorating_function(user_function):
 
-        cache = dict()
+        cache = {}
         stats = [0, 0]                  # make statistics updateable non-locally
         HITS, MISSES = 0, 1             # names for the stats fields
         make_key = _make_key

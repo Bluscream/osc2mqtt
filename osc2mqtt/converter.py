@@ -90,7 +90,7 @@ class Osc2MqttConverter(object):
 
                 self.rules[name] = ConversionRule(**rule)
             except Exception as exc:
-                raise ConfigError("Malformed conversion rule: %s" % exc)
+                raise ConfigError(f"Malformed conversion rule: {exc}")
 
     @lru_cache()
     def match_rule(self, topicoraddr):
@@ -102,8 +102,7 @@ class Osc2MqttConverter(object):
 
         """
         for name, rule in self.rules.items():
-            match = re.search(rule.match, topicoraddr)
-            if match:
+            if match := re.search(rule.match, topicoraddr):
                 log.debug("Rule '%s' match on: %s", name, topicoraddr)
                 return rule, match
 
@@ -128,36 +127,35 @@ class Osc2MqttConverter(object):
         with the array module or bytearray(), if the type of the values is uint8.
 
         """
-        result = self.match_rule(topic)
+        if not (result := self.match_rule(topic)):
+            return
+        rule, match = result
 
-        if result:
-            rule, match = result
+        # add matches extracted from MQTTtopic to values
+        if rule.topic_groups:
+            extra_values = match.group(*rule.topic_groups)
 
-            # add matches extracted from MQTTtopic to values
-            if rule.topic_groups:
-                extra_values = match.group(*rule.topic_groups)
+            if len(rule.topic_groups) == 1:
+                extra_values = [extra_values]
+            else:
+                extra_values = list(extra_values)
 
-                if len(rule.topic_groups) == 1:
-                    extra_values = [extra_values]
-                else:
-                    extra_values = list(extra_values)
+            values = values + extra_values
 
-                values = values + extra_values
+        values = self.decode_values(payload, rule)
+        addr_kwargs = match.groupdict('')
+        addr_kwargs['_values'] = values
 
-            values = self.decode_values(payload, rule)
-            addr_kwargs = match.groupdict('')
-            addr_kwargs['_values'] = values
+        if rule.from_mqtt not in (None, ''):
+            values = self.convert_mqtt_values(rule.from_mqtt, values)
 
-            if rule.from_mqtt not in (None, ''):
-                values = self.convert_mqtt_values(rule.from_mqtt, values)
+        if rule.osctags:
+            values = tuple(zip(rule.osctags, values))
 
-            if rule.osctags:
-                values = tuple(zip(rule.osctags, values))
-
-            addr = rule.address.format(*match.groups(''), **addr_kwargs)
-            log.debug("Using OSC address: %s", addr)
-            log.debug("Decoded payload to values: %r --> %r", payload, values)
-            return addr, values
+        addr = rule.address.format(*match.groups(''), **addr_kwargs)
+        log.debug("Using OSC address: %s", addr)
+        log.debug("Decoded payload to values: %r --> %r", payload, values)
+        return addr, values
 
     def convert_mqtt_values(self, converters, values):
         """Convert decoded MQTT payload values via 'from_mqtt' conversion funcs.
@@ -168,17 +166,15 @@ class Osc2MqttConverter(object):
     def decode_values(self, data, rule):
         """Decode MQTT message payload byte string into Python values."""
         if rule.type == 'json':
-            values = json.loads(data.decode(rule.format or 'utf-8'))
+            return json.loads(data.decode(rule.format or 'utf-8'))
         elif rule.type == 'struct':
-            values = struct.unpack_from(rule.format, data)
+            return struct.unpack_from(rule.format, data)
         elif rule.type == 'array':
-            values = tuple(array.array(rule.format, data))
+            return tuple(array.array(rule.format, data))
         elif rule.type == 'string':
-            values = (data.decode(rule.format or 'utf-8'),)
+            return (data.decode(rule.format or 'utf-8'),)
         else:
-            values = (data,)
-
-        return values
+            return (data,)
 
     def from_osc(self, addr, values, tags):
         """Convert OSC message to MQTT.
@@ -188,33 +184,32 @@ class Osc2MqttConverter(object):
         the OSC values into an MQTT message payload string.
 
         """
-        result = self.match_rule(addr)
-
-        if result:
-            rule, match = result
+        if not (result := self.match_rule(addr)):
+            return
+        rule, match = result
 
             # add matches extracted from OSC address to values
-            if rule.address_groups:
-                extra_values = match.group(*rule.address_groups)
+        if rule.address_groups:
+            extra_values = match.group(*rule.address_groups)
 
-                if len(rule.address_groups) == 1:
-                    extra_values = [extra_values]
-                else:
-                    extra_values = list(extra_values)
+            extra_values = (
+                [extra_values]
+                if len(rule.address_groups) == 1
+                else list(extra_values)
+            )
+            values = values + extra_values
 
-                values = values + extra_values
+        topic_kwargs = match.groupdict('')
+        topic_kwargs['_values'] = values
 
-            topic_kwargs = match.groupdict('')
-            topic_kwargs['_values'] = values
+        if rule.from_osc not in (None, ''):
+            values = self.convert_osc_values(rule.from_osc, values)
 
-            if rule.from_osc not in (None, ''):
-                values = self.convert_osc_values(rule.from_osc, values)
-
-            topic = rule.topic.format(*match.groups(''), **topic_kwargs)
-            log.debug("Using MQTT topic: %s", topic)
-            data = self.encode_values(values, rule)
-            log.debug("Encoded values to payload: %r --> %r", values, data)
-            return topic, data
+        topic = rule.topic.format(*match.groups(''), **topic_kwargs)
+        log.debug("Using MQTT topic: %s", topic)
+        data = self.encode_values(values, rule)
+        log.debug("Encoded values to payload: %r --> %r", values, data)
+        return topic, data
 
     def encode_values(self, values, rule):
         """Encode Python values into MQTT message payload."""
@@ -227,10 +222,7 @@ class Osc2MqttConverter(object):
         elif rule.type == 'string':
             return "".join(str(s) for s in values)
         else:
-            if len(values) == 1:
-                return str(values[0]).encode()
-            else:
-                return str(values).encode()
+            return str(values[0]).encode() if len(values) == 1 else str(values).encode()
 
     def convert_osc_values(self, converters, values):
         """Convert values from OSC types via 'from_osc' conversion funcs."""

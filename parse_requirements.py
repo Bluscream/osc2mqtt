@@ -29,7 +29,7 @@ def parse_requirements(requirements, ignore=('setuptools',)):
 
             if pkg not in ignore:
                 if extras:
-                    pkg = 'pkg [%s]' % extras[0]
+                    pkg = f'pkg [{extras[0]}]'
                 packages.add(pkg)
 
         return tuple(packages)
